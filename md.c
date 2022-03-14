@@ -8,25 +8,25 @@
 #define N_STEPS 20000										//Number of simulation steps
 
 #define DIMENSIONS 3										//Number of coordinates (x,y,z)
-#define N 27												//Number of particles
-#define s 3.405												//Sigma of gas (in Angstroms)
-#define p_star 0.6											//Density of gas in (dimentionless)
-#define T_star 1.24											//Temperature of gas (dimensionless)
+#define N 27											//Number of particles
+#define s 3.405											//Sigma of gas (in Angstroms)
+#define p_star 0.6										//Density of gas in (dimentionless)
+#define T_star 1.24										//Temperature of gas (dimensionless)
 #define dt_star 0.001										//Time step (dimensionless)
-#define MASS 39.948											//Mass of gas (amu)
-#define epsilon 1.65401693e-21								//Epsilon of gas (J)
+#define MASS 39.948										//Mass of gas (amu)
+#define epsilon 1.65401693e-21									//Epsilon of gas (J)
 static char atom[] = "Ar";									//Atom type
 
 /* THE ABOVE PARAMETERS CAN BE ADJUSTED TO CHANGE THE PROPERTIES OF THE GAS IN THE MACROS BELOW															*
  * Lennard-Jones parameters (epsilon and sigma for Argon) taken from: https://www.sciencedirect.com/science/article/pii/002199917590042X?via%3Dihub 	*/
 
-#define NPB (N / (p_star/pow(s,3.0)))						//Density of gas per box (NPB)
+#define NPB (N / (p_star/pow(s,3.0)))								//Density of gas per box (NPB)
 #define L pow(NPB,1.0/3.0)									//Box size (Angstroms)
-#define p (p_star / pow(s,3.0))								//Density of gas in A^(-3.0)
+#define p (p_star / pow(s,3.0))									//Density of gas in A^(-3.0)
 #define e (epsilon / kB)									//Energy of gas (K)
-#define m (MASS * 10.0 / NA / kB)							//Conversion of amu to K*Ps^2/A^2
+#define m (MASS * 10.0 / NA / kB)								//Conversion of amu to K*Ps^2/A^2
 #define T (T_star * e)										//Conversion of temperature to K
-#define dt (dt_star * sqrt((m*pow(s,2.0)) / e))				//Conversion of time step to s
+#define dt (dt_star * sqrt((m*pow(s,2.0)) / e))							//Conversion of time step to s
 
 static double r[N][DIMENSIONS] = {{0.0}};
 static double v[N][DIMENSIONS] = {{0.0}};
@@ -97,16 +97,16 @@ int main()
 
 		//Write atom position to trajectory file
 	    for(i=0;i<1;i++)
-        {
-			fprintf(fpos,"%d\n\n",N);
-            for(j=0;j<N;j++)
-            {
-				fprintf(fpos,"%s\t",atom);
-                for(k=0;k<3;k++)
-					fprintf(fpos,"%lf\t",r[j][k]);
-                fprintf(fpos,"\n");
-            }
-        }
+	    {
+		    fprintf(fpos,"%d\n\n",N);
+		    for(j=0;j<N;j++)
+		    {
+			    fprintf(fpos,"%s\t",atom);
+			    for(k=0;k<3;k++)
+				    fprintf(fpos,"%lf\t",r[j][k]);
+			    fprintf(fpos,"\n");
+		    }
+	    }
 		
 		velocityVerlet();
 
@@ -121,7 +121,7 @@ int main()
 			//Temperature from kinetic theory of gas (kB = 1 in reduced units) - N is included in KE function
 			Temp = (2.0/3.0) * KE;
 	
-			//Pressure from virial theorem (kB = 1 in reduced units)
+			//Pressure from virial theorem (kB = 1 in reduced units) - FIX UNITS
 			Press = (p/m) * (N*Temp - (1.0/(3.0*Temp)) * V);
 
 			Tavg += Temp;
@@ -138,7 +138,7 @@ int main()
 	//Pavg *= e / pow(s,3.0);
 	
 	printf("Average Momentum: %lf\n",mv);
-    printf("Average Temp (K): %lf\n",Tavg);
+	printf("Average Temp (K): %lf\n",Tavg);
 	printf("Average Pressure (reduced): %lf\n",Pavg);
 
 	return(0);
@@ -161,7 +161,7 @@ void crystalLattice()
 	for(i=0;i<n;i++)
 		for(j=0;j<n;j++)
 			for(k=0;k<n;k++)
-	       	{
+			{
 				//Ensures the total number of atoms on the lattice does not exceed N
 				if(n < N)
 				{
@@ -197,7 +197,7 @@ void initializeVelocities()
 	//Assign random initial velocities
 	for(i=0;i<N;i++)
 		for(j=0;j<3;j++)
-			v[i][j] = generateGaussian() - 0.5;
+			v[i][j] = generateGaussian() - 0.5; //Chnage Gaussian random variable from [0,1] to [-0.5,0.5]
 
 	//Calculating center of mass velocity
         for(i=0;i<N;i++)
@@ -273,10 +273,10 @@ double calculateAcceleration()
 			V += F * sqrt(r2);
 
 			for(k=0;k<3;k++)
-		    {
+			{
 				a[i][k] += rij[k] * F/m;
-		        a[j][k] -= rij[k] * F/m;
-		    }
+				a[j][k] -= rij[k] * F/m;
+			}
 		}
 
 	return V;
@@ -317,18 +317,18 @@ double potentialEnergy()
 		for(j=i+1;j<N;j++)
 		{
 			r2 = 0.0;
-	        for(k=0;k<3;k++)
+			for(k=0;k<3;k++)
 			{
 				rij[k] = r[i][k] - r[j][k];
 				rij[k] += -L * trunc(rij[k]/L);
-	
-	            while(rij[k] >= L/2.0)
+				
+				while(rij[k] >= L/2.0)
 					rij[k] -= L;
 	
 				while(rij[k] < -L/2.0)
 				   	rij[k] += L;
-
-	            r2 += rij[k] * rij[k];
+				
+				r2 += rij[k] * rij[k];
 			}
 	
 			sor = s / sqrt(r2);
@@ -364,26 +364,26 @@ double generateGaussian()
 	double u1,u2,usq,ufac;
 
  	if(!evaluate)
-    {
+	{
 		do
-        {
+		{
 			u1 = 2.0 * ((double)rand() / RAND_MAX) - 1.0;
-            u2 = 2.0 * ((double)rand() / RAND_MAX) - 1.0;
-            usq = u1*u1 + u2*u2;
-        } while(usq >= 1.0 || usq == 0.0);
-
-        ufac = sqrt((-2.0 * log(usq))/usq);
-        sDeviate = u1 * ufac;
-        evaluate = true;
-
-        return u2*ufac;
-    }
+			u2 = 2.0 * ((double)rand() / RAND_MAX) - 1.0;
+			usq = u1*u1 + u2*u2;
+		} while(usq >= 1.0 || usq == 0.0);
+		
+		ufac = sqrt((-2.0 * log(usq))/usq);
+		sDeviate = u1 * ufac;
+		evaluate = true;
+		
+		return u2*ufac;
+	}
 
 	else
-    {
+	{
 		evaluate = false;
 		return sDeviate;
-    }
+	}
 }
 
 double meanVelocitySquared()
