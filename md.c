@@ -96,8 +96,8 @@ int main()
 					thermostat();
 
 		//Write atom position to trajectory file
-	    for(i=0;i<1;i++)
-	    {
+		for(i=0;i<1;i++)
+		{
 		    fprintf(fpos,"%d\n\n",N);
 		    for(j=0;j<N;j++)
 		    {
@@ -106,7 +106,7 @@ int main()
 				    fprintf(fpos,"%lf\t",r[j][k]);
 			    fprintf(fpos,"\n");
 		    }
-	    }
+		}
 		
 		velocityVerlet();
 
