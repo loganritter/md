@@ -250,27 +250,27 @@ int main()
 
 	while(simulate)
 	{
-        if(step_count == progress)
-            printf("[ 10 |");
-        else if(step_count == 2*progress)
-            printf(" 20 |");
-        else if(step_count == 3*progress)
-            printf(" 30 |");
-        else if(step_count == 4*progress)
-            printf(" 40 |");
-        else if(step_count == 5*progress)
-            printf(" 50 |");
-        else if(step_count == 6*progress)
-            printf(" 60 |");
-        else if(step_count == 7*progress)
-            printf(" 70 |");
-        else if(step_count == 8*progress)
-            printf(" 80 |");
-        else if(step_count == 9*progress)
-            printf(" 90 |");
-        else if(step_count == 10*progress - 1)
-            printf(" 100 ]\n");
-        fflush(stdout);
+		if(step_count == progress)
+		    printf("[ 10 |");
+		else if(step_count == 2*progress)
+		    printf(" 20 |");
+		else if(step_count == 3*progress)
+		    printf(" 30 |");
+		else if(step_count == 4*progress)
+		    printf(" 40 |");
+		else if(step_count == 5*progress)
+		    printf(" 50 |");
+		else if(step_count == 6*progress)
+		    printf(" 60 |");
+		else if(step_count == 7*progress)
+		    printf(" 70 |");
+		else if(step_count == 8*progress)
+		    printf(" 80 |");
+		else if(step_count == 9*progress)
+		    printf(" 90 |");
+		else if(step_count == 10*progress - 1)
+		    printf(" 100 ]\n");
+		fflush(stdout);
 
 		singleStep();
 		if (step_count >= step_limit)
@@ -354,6 +354,7 @@ void allocateMemory()
 
 double gaussian()
 {
+	// From Numerical Recipes, 3rd. Edition
 	static int available = 0;
 	double fac, r_sq, v1, v2;
 	static double gset;
@@ -362,13 +363,13 @@ double gaussian()
 	{
 		do
 		{
-			v1 = 2 * rand()/(double)RAND_MAX -1;
-			v2 = 2 * rand()/(double)RAND_MAX -1;
-			r_sq = v1*v1+v2*v2;
+			v1 = 2 * rand() / (double)RAND_MAX - 1;
+			v2 = 2 * rand() / (double)RAND_MAX - 1;
+			r_sq = v1*v1 + v2*v2;
 		} while(r_sq >= 1 || r_sq == 0);
 
-		fac = sqrt(-2.0*log(r_sq)/r_sq);
-		gset = v1*fac;
+		fac = sqrt(-2.0 * log(r_sq) / r_sq);
+		gset = v1 * fac;
 		available = 1;
 
 		return v2*fac;
@@ -573,7 +574,7 @@ void calculateForce()
 	{
 		j1 = nebr_tab[2*n];
 		j2 = nebr_tab[2*n+1];
-		V_sub(dr,mol[j1].r,mol[j2].r);
+		V_sub(dr,mol[j1].r, mol[j2].r);
 		V_wrapAll(dr);
 		rr= V_length_sq(dr);
 		
@@ -626,7 +627,7 @@ void calculateForce()
 			
 			else if(mol[j1].type == 'B' && mol[j2].type == 'B')
 			{
-				rri = sigma_bb*sigma_bb/rr;
+				rri = sigma_bb*sigma_bb / rr;
 				r6 = cube(rri);
 
 				uVal = 4.0 * eps_bb * r6 * (r6 - 1);
@@ -671,10 +672,10 @@ void radialDist()
 					hisRdfAA[n]++;
 				if(mol[j1].type == 'B' && mol[j2].type =='B')
 					hisRdfBB[n]++;
-				if((mol[j1].type == 'A' && mol[j2].type == 'B')||(mol[j1].type == 'B' && mol[j2].type == 'A'))
+				if((mol[j1].type == 'A' && mol[j2].type == 'B') || (mol[j1].type == 'B' && mol[j2].type == 'A'))
 					hisRdfAB[n]++;
 			}
-		}\
+		}
 
 	count_number++;
 
@@ -710,7 +711,7 @@ void buildNeighborList()
 	int j2 = 0;
 	double rrNbr, rr;
 
-	rrNbr = sqr((r_cutoff + nebr_shell));
+	rrNbr = sqr(r_cutoff + nebr_shell);
 	V_div(inv_wid, cell, region);
 
 	for(n = nMol; n < nMol + V_prod(cell); n++)
@@ -727,9 +728,7 @@ void buildNeighborList()
 	
 	nebr_tab_len = 0;
 	for(m1z = 0; m1z < cell.z; m1z++)
-	{
 		for(m1y = 0; m1y<cell.y; m1y++)
-		{
 			for(m1x = 0; m1x < cell.x; m1x++)
 			{
 				V_set(m1v, m1x, m1y, m1z);
@@ -743,12 +742,12 @@ void buildNeighborList()
 					m2 = V_linear(m2v, cell) + nMol;
 					DO_CELL(j1,m1)
 						DO_CELL(j2,m2)
-						{
 							if(m1 != m2 || j2 < j1)
 							{
 								V_sub(dr, mol[j1].r, mol[j2].r);
 								VV_sub(dr, shift);
 								rr= V_length_sq(dr);
+								
 								if(rr < rrNbr)
 								{
 									nebr_tab[2*nebr_tab_len] = j1;
@@ -756,10 +755,7 @@ void buildNeighborList()
 									nebr_tab_len++;
 								}
 							}
-						}
-				}
 			}
-		}
 	}
 }
 
@@ -900,7 +896,6 @@ void evaluateDiffusion()
 	for(nb = 0; nb < nbuff_diffuse; nb ++)
 	{
 		if(tBuf[nb].count == 0)
-		{
 			DO_MOL
 			{
 				if(mol[n].type == 'A')
@@ -914,7 +909,6 @@ void evaluateDiffusion()
 					tBufBB[nb].rTrue[n] = mol[n].r;
 				}
 			}
-		}
 
 		if(tBuf[nb].count >= 0)
 		{
@@ -924,7 +918,8 @@ void evaluateDiffusion()
 			tBufAB[nb].rrDiffuse[ni] = 0.;
 			V_setAll(rSum, 0.);
 
-			DO_MOL{
+			DO_MOL
+			{
 				if (mol[n].type == 'A')
 				{
 					V_sub(dr, tBufAA[nb].rTrue[n], mol[n].r);
@@ -974,7 +969,6 @@ void collectDiffusion()
 	double facAA, facBB, facAB;
 	
 	for(nb = 0; nb < nbuff_diffuse; nb++)
-	{
 		if(tBuf[nb].count == nval_diffuse)
 		{
 			for(j = 0; j < nval_diffuse; j++)
@@ -995,6 +989,7 @@ void collectDiffusion()
 					MSDBB[j] = rr_diff_avg_bb[j] / (diffuse_limit * nMolB);
 					MSDAB[j] = rr_diff_avg_ab[j] / (diffuse_limit * nMol);
 				}
+				
 				facAA = 1.0 / (6 * nMolA * step_diffuse * dt * diffuse_limit);
 				facBB = 1.0 / (6 * nMolB * step_diffuse * dt * diffuse_limit);
 				facAB = (Q/ (6 * nMol * step_diffuse * dt * diffuse_limit));
@@ -1010,7 +1005,6 @@ void collectDiffusion()
 				resetDiffusion();
 			}
 		}
-	}
 }
 
 void printResults(FILE *fp)
