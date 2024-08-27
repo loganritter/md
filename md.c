@@ -668,112 +668,74 @@ void radialDist(FILE *fp)
 
 void MSD(FILE *fp)
 {
-        int i,j,n;
-        int row;
-	double t = 0.0;
-	double dx0,dy0,dz0;
-        double dx,dy,dz;
-	double rij_0,rij_t,avg_r,msd;
-	double x0[N],y0[N],z0[N];
-        double x[N],y[N],z[N];
+    int i,j,n;
+    double dx0, dy0, dz0;
+    double dx, dy, dz;
+    double r2_0, r2_t, msd;
+    double x0[N], y0[N], z0[N];
+    double x[N], y[N], z[N];
 
-        FILE *fxyz, *fmsd;
+    FILE *fxyz, *fmsd;
 
-	avg_r = 0.0;
+    fmsd = fopen("msd.dat", "w");
+    fprintf(fmsd, "Time (ps)\t MSD (A^2)\n");
 
-	fmsd = fopen("msd.dat","w");
-	fprintf(fmsd,"Time (ps)\t MSD (A^2)\n");
-
-	//See comments in radial distribution function for how loops function
-	fxyz = fopen("traj.xyz","r");
-        for(n=0;n<N_STEPS;n++)
+    fxyz = fopen("traj.xyz", "r");
+    for (n = 0; n < N_STEPS; n++)
+    {
+        if (n == THERMO)
         {
-		//Stores the initial positions in x,y,z arrays and computes rij after thermostating
-		if(n == THERMO)
-		{
-			for(row=-1;row<N;row++)
-			{
-				if(row == -1)
-					fscanf(fxyz,"%*d\n\n");
-				else
-					fscanf(fxyz,"%*s %lf %lf %lf\n",&x0[row],&y0[row],&z0[row]);
-			}
+            for (int row = -1; row < N; row++)
+            {
+                if (row == -1)
+                    fscanf(fxyz, "%*d\n\n");
+                else
+                    fscanf(fxyz, "%*s %lf %lf %lf\n", &x0[row], &y0[row], &z0[row]);
+            }
+        }
 
-			//Obtain initial position value, r(0)
-			for(i=0;i<N-1;i++)
-				for(j=i+1;j<N;j++)
-				{
-                                        dx0 = x0[i] - x0[j];
-                                        //dx0 += -L * round(dx0/L);
-					while(dx0 >= L/2.0)
-                                                dx0 -= L;
-                                        while(dx0 < -L/2.0)
-                                                dx0 += L;
+        for (int row = -1; row < N; row++)
+        {
+            if (row == -1)
+                fscanf(fxyz, "%*d\n\n");
+            else
+                fscanf(fxyz, "%*s %lf %lf %lf\n", &x[row], &y[row], &z[row]);
+        }
 
-                                        dy0 = y0[i] - y0[j];
-                                        //dy0 += -L * round(dy0/L);
-					while(dy0 >= L/2.0)
-                                                dy0 -= L;
-                                        while(dy0 < -L/2.0)
-                                                dy0 += L;
-
-                                        dz0 = z0[i] - z0[j];
-                                        //dz0 += -L * round(dz0/L);
-					while(dz0 >= L/2.0)
-                                                dz0 -= L;
-                                        while(dz0 < -L/2.0)
-                                                dz0 += L;
-
-					rij_0 = sqrt(dx0*dx0 + dy0*dy0 + dz0*dz0);
-				}
-		}
-
-                for(row=-1;row<N;row++)
+        if (n >= THERMO)
+        {
+            double sum_r2 = 0.0;
+            int count = 0;
+            for (i = 0; i < N - 1; i++)
+            {
+                for (j = i + 1; j < N; j++)
                 {
-                        if(row == -1)
-                                fscanf(fxyz,"%*d\n\n");
-                        else
-                                fscanf(fxyz,"%*s %lf %lf %lf\n",&x[row],&y[row],&z[row]); //Unlike the g(r) function, this grabs the final coordinate block. Again, unknown as to why they function differently
+                    dx0 = x0[i] - x0[j];
+                    dy0 = y0[i] - y0[j];
+                    dz0 = z0[i] - z0[j];
+                    dx0 -= L * round(dx0 / L);
+                    dy0 -= L * round(dy0 / L);
+                    dz0 -= L * round(dz0 / L);
+                    r2_0 = dx0 * dx0 + dy0 * dy0 + dz0 * dz0;
+
+                    dx = x[i] - x[j];
+                    dy = y[i] - y[j];
+                    dz = z[i] - z[j];
+                    dx -= L * round(dx / L);
+                    dy -= L * round(dy / L);
+                    dz -= L * round(dz / L);
+                    r2_t = dx * dx + dy * dy + dz * dz;
+
+                    sum_r2 += (r2_t - r2_0) * (r2_t - r2_0);
+                    count++;
                 }
+            }
 
-		//Obtain r(t) at each step after thermostating
-		if(n >= THERMO)
-		{
-			for(i=0;i<N-1;i++)
-				for(j=i+1;j<N;j++)
-				{
-					dx = x[i] - x[j];
-					//dx += -L * round(dx/L);
-					while(dx >= L/2.0)
-                                                dx -= L;
-                                        while(dx < -L/2.0)
-                                                dx += L;
+            msd = sum_r2 / count;
+            fprintf(fmsd, "%d\t %lf\n", n, msd);
+        }
+    }
 
-					dy = y[i] - y[j];
-	                                //dy += -L * round(dy/L);
-					while(dy >= L/2.0)
-                                                dy -= L;
-                                        while(dy < -L/2.0)
-                                                dy += L;
-	
-	                                dz = z[i] - z[j];
-	                                //dz += -L * round(dz/L);
-					while(dz >= L/2.0)
-                                                dz -= L;
-                                        while(dz < -L/2.0)
-                                                dz += L;
-
-	                                rij_t = sqrt(dx*dx + dy*dy + dz*dz);
-				}
-			
-			//Average distance travelled for all atoms per step
-			for(i=0;i<N;i++)
-				avg_r += (rij_t - rij_0)*(rij_t - rij_0) / n;
-
-			//Converting simulation step to time and calculating MSD(t)
-			t = (n - THERMO) * dt;
-			msd = avg_r / 6.0 / N;
-			fprintf(fmsd,"%lf\t%E\n",t,msd);
-		}
-	}
+    fclose(fxyz);
+    fclose(fmsd);
 }
