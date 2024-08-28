@@ -21,6 +21,12 @@
 #define APPLY_T 5							//Apply thermostat every X number of steps
 static char atom[] = "Ar";						//Atom type
 
+#define RCUT 8.5							// Cutoff radius (in Angstroms)
+#define SKIN 2.0							// Skin distance (in Angstroms)
+
+static int verlet_list[N][N];				// Verlet list for each particle
+static int verlet_list_size[N];				// Number of neighbors for each particle
+
 /* THE ABOVE PARAMETERS CAN BE ADJUSTED TO CHANGE THE PROPERTIES OF THE GAS IN THE MACROS BELOW							*
  * Lennard-Jones parameters (epsilon and sigma) taken from: https://www.sciencedirect.com/science/article/pii/002199917590042X?via%3Dihub 	*/
 
@@ -35,9 +41,6 @@ static double r[N][DIMENSIONS];
 static double v[N][DIMENSIONS];
 static double a[N][DIMENSIONS];
 
-//New array declaration for multicomponent system for sigma and epsilon parameters
-//static double sigma[N], epsilon[N];
-
 void crystalLattice();
 void wrapToBox();
 void initializeVelocities();
@@ -48,9 +51,10 @@ double kineticEnergy();
 double generateGaussian();
 double meanSquaredVelocity();
 void thermostat();
+void initializeVerletList();
+void updtateVerletList();
 void radialDist(FILE *fp);
 void MSD(FILE *fp);
-//void VACF(FILE *fp);
 
 int main()
 {
@@ -72,6 +76,7 @@ int main()
 	start = clock();
 
 	crystalLattice();
+	initializeVerletList();
 	calculateAcceleration();
 	v2 = meanSquaredVelocity();
 
@@ -111,7 +116,10 @@ int main()
 			printf(" 100 ]\n");
 		fflush(stdout);
 
-		V = calculateAcceleration();
+		// Updtate Verlet list every 20 steps
+		if (n % 20 == 0) {
+			updtateVerletList();
+		}
 
 		//Apply thermostat
 		if(n != 0 && n % APPLY_T == 0 && n < THERMO)
@@ -169,11 +177,6 @@ int main()
 			Temp = (2.0/3.0) * KE;
 			fprintf(ftemp,"%d\t %lf\n",n,Temp);
 			Tavg += Temp;
-
-			//Pressure from virial theorem (kB = 1 in reduced units)
-			Press = (p*s*s*s)/N/3.0 * (v2 + V/e);
-			fprintf(fpress,"%d\t %lf\n",n,Press);
-			Pavg += Press;
 		}
 	}
 	fclose(ftraj);
@@ -205,8 +208,8 @@ int main()
 	cvPE = (3.0/2.0) * pow(1.0 - 2*N*(sqPE-pow(PEavg,2.0))/3.0/pow(Tavg,2.0),-1.0);
 	cvKE = (3.0/2.0) * pow(1.0 - 2*N*(sqKE-pow(KEavg,2.0))/3.0/pow(Tavg,2.0),-1.0);
 
-	//Long-range correction to pressure (from Comp. Sim. of Liquids - Allen/Tildesly, pg. 65)
-	plrc = (16.0/3.0) * M_PI * pow(p_star,2.0) * ((2.0/3.0) * pow(s/L/2.0,9.0) - pow(s/L/2.0,3.0));
+	// Long-range correction to pressure (from Comp. Sim. of Liquids - Allen/Tildesly, pg. 65)
+	// plrc = (16.0/3.0) * M_PI * pow(p_star,2.0) * ((2.0/3.0) * pow(s/L/2.0,9.0) - pow(s/L/2.0,3.0));
 
 	//Long-range correction to energy (from Comp. Sim. of Liquids - Allen/Tildesly, pg. 65)
 	ulrc = (8.0/3.0) * M_PI * N * p_star * e * ((1.0/3.0) * pow(s/L/2.0,9.0) - pow(s/L/2.0,3.0));
@@ -218,11 +221,11 @@ int main()
 	printf("Average Temperature (K): %lf\n",Tavg);
 	printf("Percent Difference: %.2lf%%\n",(Tavg-T)/T*100.0);
 	printf("*****************************************************************************\n");
-	printf("--- PRESSURE ---\n");
-	printf("Average Reduced Pressure: %lf\n",Pavg);
-	printf("Pressure from Long-Range Correction: %lf\n",plrc);
-	printf("Average Reduced Pressure with Long-Range Correction: %lf\n",(Pavg+plrc));
-	printf("*****************************************************************************\n");
+	// printf("--- PRESSURE ---\n");
+	// printf("Average Reduced Pressure: %lf\n",Pavg);
+	// printf("Pressure from Long-Range Correction: %lf\n",plrc);
+	// printf("Average Reduced Pressure with Long-Range Correction: %lf\n",(Pavg+plrc));
+	// printf("*****************************************************************************\n");
 	printf("--- ENERGY ---\n");
 	printf("Average Reduced Potential Energy: %lf\n",PEavg/e);
 	printf("Energy from Long-Range Correction per Particle: %lf\n",ulrc/e/N);
@@ -383,57 +386,58 @@ void initializeVelocities()
 			v[i][j] *= vScale;
 }
 
-double calculateAcceleration()
-{
-	int i,j,k;
-	double F,r2,r6,r12,sor;
-	double V = 0;
+double calculateAcceleration() {
+    int i, j, k, neighbor;
+    double F, r2, r6, r12, sor;
+    double V = 0.0;
 
-	//Position of i relative to j
-	double rij[3];
+    // Position of i relative to j
+    double rij[3];
 
-	//Initialize acceleration to 0
-	for(i=0; i<N; i++)
-		for(j=0; j<3; j++)
-			a[i][j] = 0;
+    // Initialize acceleration to 0
+    for (i = 0; i < N; i++) {
+        for (j = 0; j < DIMENSIONS; j++) {
+            a[i][j] = 0.0;
+        }
+    }
 
-	//Loop over all distinct pairs i,j
-	for(i=0; i<N-1; i++)
-		for(j=i+1; j<N; j++)
-		{
-			r2 = 0.0;
-			for(k=0; k<3; k++)
-			{
-				//Component-by-componenent position of i relative to j
-				rij[k] = r[i][k] - r[j][k];
+    // Loop over all particles using Verlet list
+    for (i = 0; i < N; i++) {
+        for (k = 0; k < verlet_list_size[i]; k++) {
+            neighbor = verlet_list[i][k];
 
-				//Periodic boundary conditions
-                rij[k] -= L * round(rij[k] / L);
-                
-				//Dot product of the position component
-				r2 += rij[k] * rij[k];
-			}
+            // Ensure we only calculate interactions once by checking i < neighbor
+            if (i < neighbor) {
+                r2 = 0.0;
 
-			if (r2 < 0.25*L*L)
-			{
-				sor = (s*s) / r2;
-				r6 = sor * sor * sor;
-				r12 = r6 * r6;
+                // Calculate distance vector and squared distance
+                for (j = 0; j < DIMENSIONS; j++) {
+                    rij[j] = r[i][j] - r[neighbor][j];
+                    rij[j] -= L * round(rij[j] / L);  // Periodic boundary conditions
+                    r2 += rij[j] * rij[j];
+                }
 
-				F = 48.0 * e/r2 * (r12 - 0.5*r6);
+                if (r2 < RCUT * RCUT) {
+                    sor = (s * s) / r2;
+                    r6 = sor * sor * sor;
+                    r12 = r6 * r6;
+                    F = 48.0 * e / r2 * (r12 - 0.5 * r6);  // Force magnitude
 
-				//Virial sum for pressure calculation
-				V += F * r2;
+                    // Calculate potential energy
+                    V += 4.0 * e * (r12 - r6);
 
-				for(k=0; k<3; k++)
-				{
-					a[i][k] += rij[k] * F/m;
-					a[j][k] -= rij[k] * F/m;
-				}
-			}
-		}
+                    // Update accelerations
+                    for (j = 0; j < DIMENSIONS; j++) {
+                        double force = rij[j] * F / m;
+                        a[i][j] += force;        // Apply force to particle i
+                        a[neighbor][j] -= force; // Apply opposite force to neighbor
+                    }
+                }
+            }
+        }
+    }
 
-	return V;
+    return V;
 }
 
 void velocityVerlet()
@@ -584,6 +588,35 @@ void thermostat()
     for (i = 0; i < N; i++)
         for (j = 0; j < 3; j++)
             v[i][j] *= vScale;
+}
+
+void initializeVerletList() {
+    int i, j, k;
+    double r2, rij[3];
+
+    for (i = 0; i < N; i++) {
+        verlet_list_size[i] = 0;  // Reset the size of the Verlet list for particle i
+    }
+
+    for (i = 0; i < N - 1; i++) {
+        for (j = i + 1; j < N; j++) {
+            r2 = 0.0;
+            for (k = 0; k < DIMENSIONS; k++) {
+                rij[k] = r[i][k] - r[j][k];
+                rij[k] -= L * round(rij[k] / L);  // Periodic boundary conditions
+                r2 += rij[k] * rij[k];
+            }
+
+            if (r2 < pow(RCUT + SKIN, 2.0)) {
+                verlet_list[i][verlet_list_size[i]++] = j;
+                verlet_list[j][verlet_list_size[j]++] = i;
+            }
+        }
+    }
+}
+
+void updtateVerletList() {
+	initializeVerletList(); // Recalculate the Verlet list
 }
 
 void radialDist(FILE *fp)
