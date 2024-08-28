@@ -648,7 +648,6 @@ void radialDist(FILE *fp)
 					if(rij < L/2.0)
 					{
 	                                        g[(int)(rij/dr)] += 2.0;
-						printf("%d\n",(int)(rij/dr));
 					}
                                 }
                 }
