@@ -407,12 +407,8 @@ double calculateAcceleration()
 				//Component-by-componenent position of i relative to j
 				rij[k] = r[i][k] - r[j][k];
 
-				//Periodic boundary conditions
-				rij[k] += -L + trunc(rij[k]/L);
-	                        while(rij[k] >= 0.5*L)
-					rij[k] -= L;
-				while(rij[k] < -0.5*L)
-	            	        	rij[k] += L;
+		                // Apply periodic boundary conditions using minimum image convention
+		                rij[k] -= L * round(rij[k] / L);
 
 				//Dot product of the position component
 				r2 += rij[k] * rij[k];
